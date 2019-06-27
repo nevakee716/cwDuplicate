@@ -1,5 +1,5 @@
 {
-  "name": "Dupllicate",
+  "name": "Duplicate",
   "version": "1.0.0",
   "description": "Add a button to duplicate object",
   "main": "src/duplicate.js",

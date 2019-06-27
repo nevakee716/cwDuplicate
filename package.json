@@ -1,0 +1,21 @@
+{
+  "name": "Dupllicate",
+  "version": "0.1.1",
+  "description": "Add a button to duplicate object",
+  "main": "src/duplicate.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nevakee716/cwDuplicate.git"
+  },
+  "author": "Mathias Pfauwadel",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/nevakee716/cwDuplicate/issues"
+  },
+  "homepage": "https://github.com/nevakee716/cwDuplicate/wiki",
+  "wiki": "https://github.com/nevakee716/cwDuplicate/wiki",
+  "evolve-version": "4.0 - 4.2"
+}

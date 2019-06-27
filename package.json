@@ -1,6 +1,6 @@
 {
   "name": "Duplicate",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Add a button to duplicate object",
   "main": "src/duplicate.js",
   "scripts": {

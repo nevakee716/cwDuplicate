@@ -67,7 +67,7 @@
             config = cwCustomerSiteActions.duplication.config["default"];
         }
 
-        cwAPI.CwWorkflowRestApi.getApprovers(cwApi.getCurrentView().cwView, 1, function(response) {
+        cwAPI.CwWorkflowRestApi.getApprovers(cwApi.getCurrentView().cwView, rootNode.object_id, function(response) {
             let canDupe = false;
             if (response.approvers.length === 0) canDupe = true;
             response.approvers.forEach(function(approuver) {
@@ -81,12 +81,12 @@
 
                 var buttonContainer = document.querySelector(".cw-edit-buttons");
                 buttonContainer.append(duplicationButton);
-                cwCustomerSiteActions.duplication.addEventToDuplicateButton(rootNode,duplicationButton);
+                cwCustomerSiteActions.duplication.addEventToDuplicateButton(rootNode,duplicationButton,config);
             }
         });
     };
 
-    cwCustomerSiteActions.duplication.addEventToDuplicateButton = function(rootNode,duplicationButton) {
+    cwCustomerSiteActions.duplication.addEventToDuplicateButton = function(rootNode,duplicationButton,config) {
         var newObj = $.extend(true, {}, rootNode);
 
         newObj.properties = {};

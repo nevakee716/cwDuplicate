@@ -38,9 +38,9 @@
   cwCustomerSiteActions.duplication = {};
   cwCustomerSiteActions.duplication.config = {
     process: {
-      associationScriptNameToExclude: ["anyobjectexplodedasdiagram", "anyobjectshownasshapeindiagram"],
-      associationToTheMainObjectDD: {
-        associationTypeScriptName: "processtoassoprocessusprocessusvariantereversetoprocess",
+      associationScriptNameToExclude: ["anyobjectexplodedasdiagram", "anyobjectshownasshapeindiagram", "processtoassoprocessusprocessusacommevarianteforwardtoprocess"],
+      associationToTheMainObject: {
+        associationTypeScriptName: "processtoassoprocessusprocessusacommevariantereversetoprocess",
         displayName: "Est la variante de",
       },
     },
@@ -60,11 +60,22 @@
       return;
     }
 
-    var config;
-    if (cwCustomerSiteActions.duplication.config[cwApi.getCurrentView().cwView]) {
-      config = cwCustomerSiteActions.duplication.config[cwApi.getCurrentView().cwView];
+    var config, configG;
+    let view = cwAPI.ViewSchemaManager.getPageSchema("z_custom_layout_configuration");
+    if (view) {
+      try {
+        configG = JSON.parse(view.NodesByID[view.RootNodesId].LayoutOptions.CustomOptions.config);
+      } catch (e) {
+        return;
+      }
     } else {
-      config = cwCustomerSiteActions.duplication.config["default"];
+      return;
+    }
+
+    if (configG.duplicateButton && configG.duplicateButton[cwApi.getCurrentView().cwView]) {
+      config = configG.duplicateButton[cwApi.getCurrentView().cwView];
+    } else {
+      return;
     }
 
     cwAPI.CwWorkflowRestApi.getApprovers(cwApi.getCurrentView().cwView, rootNode.object_id, function(response) {
@@ -94,7 +105,7 @@
     newObj.associations = {};
 
     for (let i in rootNode.properties) {
-      if (rootNode.properties.hasOwnProperty(i) && i !== "cwaveragerating" && i !== "cwtotalcomment" && i !== "exportflag") {
+      if (rootNode.properties.hasOwnProperty(i) && config.propertyScriptNameToExclude.indexOf(i) === -1 && i !== "cwaveragerating" && i !== "cwtotalcomment" && i !== "exportflag") {
         let p = cwApi.mm.getProperty(rootNode.objectTypeScriptName, i);
         if (p) {
           switch (p.type) {
@@ -124,8 +135,15 @@
     var viewSchema = cwApi.ViewSchemaManager.getCurrentViewSchema();
 
     duplicationButton.addEventListener("click", function(event) {
+      if (cwApi.isWebSocketConnected === false) {
+        cwApi.notificationManager.addError("The websocket connection is not available, either wait or reload the page.");
+        return false;
+      }
+
       cwAPI.CwEditSave.setPopoutContentForGrid(cwApi.CwPendingChangeset.ActionType.Create, null, newObj, 0, newObj.objectTypeScriptName, function(elem) {
         if (elem && elem.status == "Ok") {
+          var associationsCalls = [];
+          var existing_association = {};
           newObj.object_id = elem.id;
           for (let assNode in rootNode.associations) {
             if (
@@ -133,58 +151,52 @@
               config.associationScriptNameToExclude.indexOf(viewSchema.NodesByID[assNode].AssociationTypeScriptName.toLowerCase()) === -1 &&
               (config.associationToTheMainObject == undefined || (config.associationToTheMainObject && viewSchema.NodesByID[assNode].AssociationTypeScriptName !== config.associationToTheMainObject.associationTypeScriptName.toLowerCase()))
             ) {
-              newObj.associations[assNode] = {};
-              newObj.associations[assNode].items = [];
-              newObj.associations[assNode].associationScriptName = viewSchema.NodesByID[assNode].AssociationTypeScriptName;
-              newObj.associations[assNode].displayName = viewSchema.NodesByID[assNode].NodeName;
-
-              newNewObj.associations[assNode] = {};
-              newNewObj.associations[assNode].associationScriptName = viewSchema.NodesByID[assNode].AssociationTypeScriptName;
-              newNewObj.associations[assNode].displayName = viewSchema.NodesByID[assNode].NodeName;
-              newNewObj.associations[assNode].items = rootNode.associations[assNode];
-
-              newNewObj.associations[assNode].items.forEach(function(o) {
-                o.intersectionObjectUID = "";
-                o.isNew = "false";
-                o.targetObjectID = o.object_id;
-                o.targetObjectTypeScriptName = o.objectTypeScriptname;
+              let associationTypeScriptName = viewSchema.NodesByID[assNode].AssociationTypeScriptName.toLowerCase();
+              rootNode.associations[assNode].forEach(function(o) {
+                let dataServiceFunction = function(callback) {
+                  if (existing_association[[associationTypeScriptName.toUpperCase(), newObj.object_id, o.object_id].join("_")] !== undefined) {
+                    cwApi.CwDataServicesApi.send("updateObject", o.iObjectTypeScriptName, existing_association[[associationTypeScriptName.toUpperCase(), newObj.object_id, o.object_id].join("_")], o.iProperties, function(err) {
+                      callback(null, err);
+                    });
+                  } else {
+                    cwApi.CwDataServicesApi.send("associateObjects", associationTypeScriptName.toUpperCase(), newObj.objectTypeScriptName.toUpperCase(), newObj.object_id, o.objectTypeScriptName.toUpperCase(), o.object_id, function(err, associationId, intersectionObject) {
+                      if (err !== null) {
+                        console.log(err);
+                        callback(null, err);
+                      }
+                      existing_association[[associationTypeScriptName.toUpperCase(), newObj.object_id, o.object_id].join("_")] = intersectionObject.iProperties.uniqueidentifier;
+                      cwApi.CwDataServicesApi.send("updateObject", o.iObjectTypeScriptName, intersectionObject.iProperties.uniqueidentifier, o.iProperties, function(err) {
+                        callback(null, err);
+                      });
+                    });
+                  }
+                };
+                associationsCalls.push(dataServiceFunction);
               });
-              newNewObj.object_id = newObj.object_id;
             }
           }
 
-          newNewObj.object_id = newObj.object_id;
+          // Association to original Object
           if (config.associationToTheMainObject) {
-            newObj.associations["42"] = {};
-            newObj.associations["42"].items = [];
-            newObj.associations["42"].associationScriptName = config.associationToTheMainObject.associationTypeScriptName.toLowerCase();
-            newObj.associations["42"].displayName = config.associationToTheMainObject.displayName;
-
-            newNewObj.associations["42"] = {};
-            newNewObj.associations["42"].associationScriptName = config.associationToTheMainObject.associationTypeScriptName.toLowerCase();
-            newNewObj.associations["42"].displayName = config.associationToTheMainObject.displayName;
-            newNewObj.associations["42"].items = [
-              {
-                intersectionObjectUID: "",
-                isNew: "false",
-                targetObjectID: rootNode.object_id,
-                targetObjectTypeScriptName: rootNode.objectTypeScriptname,
-                name: rootNode.name,
-              },
-            ];
+            let dataServiceFunction = function(callback) {
+              cwApi.CwDataServicesApi.send("associateObjects", config.associationToTheMainObject.associationTypeScriptName.toUpperCase(), newObj.objectTypeScriptName.toUpperCase(), newObj.object_id, rootNode.objectTypeScriptName.toUpperCase(), rootNode.object_id, function(err, associationId, intersectionObject) {
+                callback(null, "ok");
+              });
+            };
+            associationsCalls.push(dataServiceFunction);
           }
-
-          if (config.associationToTheMainObject && rootNode.associations.length == 0) {
-            window.location.hash = cwApi.getSingleViewHash(newObj.objectTypeScriptName, newObj.object_id);
-          }
-
-          cwAPI.CwEditSave.setPopoutContentForGrid(cwApi.CwPendingChangeset.ActionType.Update, newObj, newNewObj, newObj.object_id, newObj.objectTypeScriptName, function(response) {
-            if (!cwApi.statusIsKo(response)) {
-              setTimeout(function() {
-                window.location.hash = cwApi.getSingleViewHash(newObj.objectTypeScriptName, newObj.object_id);
-              }, 1000);
-            }
+          async.series(associationsCalls, function(err, results) {
+            setTimeout(function() {
+              window.location.hash = cwApi.getSingleViewHash(newObj.objectTypeScriptName, newObj.object_id);
+            }, 1000);
           });
+          //  cwAPI.CwEditSave.setPopoutContentForGrid(cwApi.CwPendingChangeset.ActionType.Update, newObj, newNewObj, newObj.object_id, newObj.objectTypeScriptName, function(response) {
+          //    if (!cwApi.statusIsKo(response)) {
+          //      setTimeout(function() {
+          //        window.location.hash = cwApi.getSingleViewHash(newObj.objectTypeScriptName, newObj.object_id);
+          //      }, 1000);
+          //    }
+          //  });
         }
       });
     });
